@@ -1,0 +1,228 @@
+package com.ledger.ledgerapp.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ledger.ledgerapp.data.TokenManager
+import com.ledger.ledgerapp.network.RetrofitClient
+import com.ledger.ledgerapp.network.models.Transaction
+import com.ledger.ledgerapp.network.models.TransactionRequest
+import com.ledger.ledgerapp.network.models.TransactionType
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+data class TransactionUiState(
+    val transactions: List<Transaction> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val totalIncome: Double = 0.0,
+    val totalExpense: Double = 0.0,
+    val balance: Double = 0.0
+)
+
+class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel() {
+    private val apiService = RetrofitClient.createAuthenticatedApiService(tokenManager)
+    
+    private val _uiState = MutableStateFlow(TransactionUiState())
+    val uiState: StateFlow<TransactionUiState> = _uiState.asStateFlow()
+    
+    // 移除init块中的loadTransactions()调用，避免在ViewModel创建时立即加载数据
+    // 数据加载应该由UI层在合适的时机触发（如HomeScreen中的LaunchedEffect）
+    
+    fun loadTransactions(
+        type: TransactionType? = null,
+        startDate: String? = null,
+        endDate: String? = null,
+        category: String? = null
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val response = apiService.getTransactions(
+                    type = type?.name?.lowercase(),
+                    startDate = startDate,
+                    endDate = endDate,
+                    category = category
+                )
+                
+                if (response.isSuccessful) {
+                    val transactionList = response.body()?.items ?: emptyList()
+                    
+                    // 计算总收入和总支出
+                    val totalIncome = transactionList
+                        .filter { it.type == "income" }
+                        .sumOf { it.amount }
+                    val totalExpense = transactionList
+                        .filter { it.type == "expense" }
+                        .sumOf { it.amount }
+                    val balance = totalIncome - totalExpense
+                    
+                    _uiState.value = _uiState.value.copy(
+                        transactions = transactionList,
+                        isLoading = false,
+                        totalIncome = totalIncome,
+                        totalExpense = totalExpense,
+                        balance = balance
+                    )
+                } else {
+                    // 如果是401错误，清除token
+                    if (response.code() == 401) {
+                        tokenManager.clearToken()
+                    }
+                    
+                    val errorMessage = when (response.code()) {
+                        401 -> "未授权，请重新登录"
+                        403 -> "无权限访问"
+                        404 -> "接口不存在"
+                        else -> "加载失败: ${response.message()}"
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = errorMessage
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = "网络错误: ${e.message}"
+                )
+            }
+        }
+    }
+    
+    fun createTransaction(
+        amount: Double,
+        type: TransactionType,
+        category: String,
+        description: String?,
+        date: String,
+        onSuccess: () -> Unit,
+        onError: (String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val request = TransactionRequest(
+                    amount = amount,
+                    type = type.name.lowercase(),
+                    category = category,
+                    description = description,
+                    date = date
+                )
+                
+                val response = apiService.createTransaction(request)
+                
+                if (response.isSuccessful) {
+                    loadTransactions() // 重新加载列表
+                    onSuccess()
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    val errorMsg = when {
+                        response.code() == 404 -> "接口不存在 (404): 请检查API路径是否正确"
+                        response.code() == 401 -> "未授权 (401): 请重新登录"
+                        response.code() == 403 -> "无权限 (403): 请检查账户权限"
+                        errorBody != null -> "创建失败: $errorBody"
+                        else -> "创建失败: ${response.message()} (${response.code()})"
+                    }
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    onError(errorMsg)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                val errorMsg = when {
+                    e.message?.contains("404") == true -> "接口不存在: 请检查API路径是否为 /api/transactions"
+                    e.message?.contains("401") == true -> "未授权: 请重新登录"
+                    else -> "网络错误: ${e.message}"
+                }
+                onError(errorMsg)
+            }
+        }
+    }
+    
+    fun updateTransaction(
+        id: Int,
+        amount: Double,
+        type: TransactionType,
+        category: String,
+        description: String?,
+        date: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val request = TransactionRequest(
+                    amount = amount,
+                    type = type.name.lowercase(),
+                    category = category,
+                    description = description,
+                    date = date
+                )
+                
+                val response = apiService.updateTransaction(id, request)
+                
+                if (response.isSuccessful) {
+                    loadTransactions() // 重新加载列表
+                    onSuccess()
+                } else {
+                    val errorMsg = "更新失败: ${response.message()} (${response.code()})"
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    onError(errorMsg)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                onError("网络错误: ${e.message}")
+            }
+        }
+    }
+    
+    fun deleteTransaction(
+        id: Int,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            
+            try {
+                val response = apiService.deleteTransaction(id)
+                
+                if (response.isSuccessful) {
+                    loadTransactions() // 重新加载列表
+                    onSuccess()
+                } else {
+                    val errorMsg = "删除失败: ${response.message()}"
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    onError(errorMsg)
+                }
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                onError("网络错误: ${e.message}")
+            }
+        }
+    }
+    
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+    
+    // 根据 ID 获取单个 transaction
+    suspend fun getTransactionById(id: Int): Transaction? {
+        return try {
+            val response = apiService.getTransaction(id)
+            if (response.isSuccessful) {
+                response.body()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+
