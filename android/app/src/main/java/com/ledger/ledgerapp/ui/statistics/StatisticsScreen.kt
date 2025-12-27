@@ -62,10 +62,13 @@ fun StatisticsScreen(
         )
     }
 
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = listOf("分类支出", "收支趋势")
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("支出统计") },
+                title = { Text("统计分析") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
@@ -77,97 +80,194 @@ fun StatisticsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
+                .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else if (pieChartData.isEmpty()) {
-                Text("暂无支出数据")
-            } else {
-                // 饼图
-                Box(
-                    modifier = Modifier
-                        .size(250.dp)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PieChart(
-                        data = pieChartData,
-                        radiusOuter = 100.dp,
-                        chartBarWidth = 30.dp,
-                        animDuration = 1000
+            TabRow(selectedTabIndex = selectedTabIndex) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = { Text(title) }
                     )
-                    
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                }
+            }
+
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                when (selectedTabIndex) {
+                    0 -> CategoryExpenseView(uiState, pieChartData)
+                    1 -> TrendView(uiState)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TrendView(uiState: com.ledger.ledgerapp.viewmodel.TransactionUiState) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "每日收支趋势",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+        
+        LineChart(
+            data = uiState.dailyStats,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Summary for the period
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("本期概览", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("总收入", style = MaterialTheme.typography.bodySmall)
                         Text(
-                            text = "总支出",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            "¥${String.format("%.2f", uiState.totalIncome)}",
+                            color = Color(0xFF66BB6A),
+                            fontWeight = FontWeight.Bold
                         )
+                    }
+                    Column {
+                        Text("总支出", style = MaterialTheme.typography.bodySmall)
                         Text(
-                            text = "¥${String.format("%.2f", uiState.totalExpense)}",
-                            style = MaterialTheme.typography.titleLarge,
+                            "¥${String.format("%.2f", uiState.totalExpense)}",
+                            color = Color(0xFFEF5350),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Column {
+                        Text("结余", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "¥${String.format("%.2f", uiState.balance)}",
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
+            }
+        }
+    }
+}
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // 列表
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+@Composable
+fun CategoryExpenseView(
+    uiState: com.ledger.ledgerapp.viewmodel.TransactionUiState,
+    pieChartData: List<PieChartData>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (pieChartData.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("暂无支出数据")
+            }
+        } else {
+            // 饼图
+            Box(
+                modifier = Modifier
+                    .size(250.dp)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                PieChart(
+                    data = pieChartData,
+                    radiusOuter = 100.dp,
+                    chartBarWidth = 30.dp,
+                    animDuration = 1000
+                )
+                
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    items(uiState.expenseStats.zip(pieChartData)) { (stat, chartData) ->
-                        val icon = CategoryData.expenseCategories.find { it.name == stat.category }?.icon 
-                            ?: CategoryData.incomeCategories.find { it.name == stat.category }?.icon
-                            ?: Icons.Default.Category
+                    Text(
+                        text = "总支出",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "¥${String.format("%.2f", uiState.totalExpense)}",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // 颜色指示器
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .background(chartData.color, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            
-                            // 图标
-                            Icon(
-                                imageVector = icon,
-                                contentDescription = stat.category,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
+            // 列表
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(uiState.expenseStats.zip(pieChartData)) { (stat, chartData) ->
+                    val icon = CategoryData.expenseCategories.find { it.name == stat.category }?.icon 
+                        ?: CategoryData.incomeCategories.find { it.name == stat.category }?.icon
+                        ?: Icons.Default.Category
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 颜色指示器
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .background(chartData.color, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        
+                        // 图标
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = stat.category,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        Text(
+                            text = stat.category,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = stat.category,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyLarge
+                                text = "¥${String.format("%.2f", stat.amount)}",
+                                fontWeight = FontWeight.Bold
                             )
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = "¥${String.format("%.2f", stat.amount)}",
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "${String.format("%.1f", stat.percentage * 100)}%",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Text(
+                                text = "${String.format("%.1f", stat.percentage * 100)}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        Divider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                     }
+                    Divider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 }
             }
         }

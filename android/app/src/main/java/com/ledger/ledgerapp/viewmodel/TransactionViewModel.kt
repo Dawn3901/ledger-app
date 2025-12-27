@@ -18,6 +18,12 @@ data class CategoryStat(
     val percentage: Float
 )
 
+data class DailyStat(
+    val date: String,
+    val income: Double,
+    val expense: Double
+)
+
 data class TransactionUiState(
     val transactions: List<Transaction> = emptyList(),
     val isLoading: Boolean = false,
@@ -25,7 +31,8 @@ data class TransactionUiState(
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
     val balance: Double = 0.0,
-    val expenseStats: List<CategoryStat> = emptyList()
+    val expenseStats: List<CategoryStat> = emptyList(),
+    val dailyStats: List<DailyStat> = emptyList()
 )
 
 class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel() {
@@ -80,13 +87,31 @@ class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel()
                         }
                         .sortedByDescending { it.amount }
 
+                    // 计算每日收支统计
+                    val dailyStats = transactionList
+                        .groupBy { 
+                            // 提取日期部分 (YYYY-MM-DD)
+                            if (it.date.length >= 10) it.date.substring(0, 10) else it.date 
+                        }
+                        .map { (date, transactions) ->
+                            val dailyIncome = transactions
+                                .filter { it.type == "income" }
+                                .sumOf { it.amount }
+                            val dailyExpense = transactions
+                                .filter { it.type == "expense" }
+                                .sumOf { it.amount }
+                            DailyStat(date, dailyIncome, dailyExpense)
+                        }
+                        .sortedBy { it.date }
+
                     _uiState.value = _uiState.value.copy(
                         transactions = transactionList,
                         isLoading = false,
                         totalIncome = totalIncome,
                         totalExpense = totalExpense,
                         balance = balance,
-                        expenseStats = expenseStats
+                        expenseStats = expenseStats,
+                        dailyStats = dailyStats
                     )
                 } else {
                     // 如果是401错误，清除token
