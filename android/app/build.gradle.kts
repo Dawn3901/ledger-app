@@ -74,4 +74,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     // coroutines
     implementation(libs.kotlinx.coroutines.android)
+    // 图片加载
+    implementation(libs.coil.compose)
 }

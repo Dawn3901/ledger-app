@@ -10,6 +10,8 @@ data class Transaction(
     val amount: Double,
     val category: String,
     val description: String? = null,
+    @SerializedName("image_path")
+    val imagePath: String? = null,
     val date: String, // ISO 8601 format: "2024-01-15T10:30:00"
     @SerializedName("created_at")
     val createdAt: String,
@@ -48,6 +50,8 @@ data class TransactionRequest(
     val type: String, // "income" or "expense"
     val category: String,
     val description: String? = null,
+    @SerializedName("image_path")
+    val imagePath: String? = null,
     val date: String
 )
 

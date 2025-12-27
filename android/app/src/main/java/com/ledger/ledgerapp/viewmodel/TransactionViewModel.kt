@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 
 data class CategoryStat(
     val category: String,
@@ -34,6 +38,7 @@ data class TransactionUiState(
     val expenseStats: List<CategoryStat> = emptyList(),
     val dailyStats: List<DailyStat> = emptyList()
 )
+
 
 class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel() {
     private val apiService = RetrofitClient.createAuthenticatedApiService(tokenManager)
@@ -144,6 +149,7 @@ class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel()
         type: TransactionType,
         category: String,
         description: String?,
+        imagePath: String?,
         date: String,
         onSuccess: () -> Unit,
         onError: (String?) -> Unit
@@ -157,6 +163,7 @@ class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel()
                     type = type.name.lowercase(),
                     category = category,
                     description = description,
+                    imagePath = imagePath,
                     date = date
                 )
                 
@@ -189,12 +196,41 @@ class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel()
         }
     }
     
+    fun uploadImage(
+        file: File,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val requestFile = file.asRequestBody("image/*".toMediaTypeOrNull())
+                val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+                
+                val response = apiService.uploadImage(body)
+                
+                if (response.isSuccessful) {
+                    val url = response.body()?.get("url")
+                    if (url != null) {
+                        onSuccess(url)
+                    } else {
+                        onError("Upload failed: No URL returned")
+                    }
+                } else {
+                    onError("Upload failed: ${response.message()}")
+                }
+            } catch (e: Exception) {
+                onError("Upload error: ${e.message}")
+            }
+        }
+    }
+
     fun updateTransaction(
         id: Int,
         amount: Double,
         type: TransactionType,
         category: String,
         description: String?,
+        imagePath: String?,
         date: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
@@ -208,6 +244,7 @@ class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel()
                     type = type.name.lowercase(),
                     category = category,
                     description = description,
+                    imagePath = imagePath,
                     date = date
                 )
                 

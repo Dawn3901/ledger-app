@@ -41,6 +41,7 @@ def create_transaction(
         amount=transaction.amount,
         category=transaction.category,
         description=transaction.description,
+        image_path=transaction.image_path,
         date=transaction.date
     )
 

@@ -8,6 +8,7 @@ import com.ledger.ledgerapp.network.models.TransactionRequest
 import com.ledger.ledgerapp.network.models.TransactionResponse
 import com.ledger.ledgerapp.network.models.TransactionListResponse
 import com.ledger.ledgerapp.network.models.TransactionSummaryResponse
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -60,4 +61,11 @@ interface ApiService {
         @Query("start_date") startDate: String? = null,
         @Query("end_date") endDate: String? = null
     ): Response<TransactionSummaryResponse>
+
+    // 图片上传
+    @Multipart
+    @POST("api/upload/image")
+    suspend fun uploadImage(
+        @Part image: MultipartBody.Part
+    ): Response<Map<String, String>>
 }

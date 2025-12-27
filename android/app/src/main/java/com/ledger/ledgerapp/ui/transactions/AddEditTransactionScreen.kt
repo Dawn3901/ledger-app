@@ -5,20 +5,28 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import coil.compose.AsyncImage
 import com.ledger.ledgerapp.data.CategoryData
 import com.ledger.ledgerapp.data.TokenManager
 import com.ledger.ledgerapp.network.models.Transaction
 import com.ledger.ledgerapp.network.models.TransactionType
 import com.ledger.ledgerapp.viewmodel.TransactionViewModel
+import java.io.File
+import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +93,14 @@ fun AddEditTransactionScreen(
             }
         } ?: SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
     ) }
+    
+    var imagePath by remember(loadedTransaction) { mutableStateOf(loadedTransaction?.imagePath) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri: Uri? ->
+        selectedImageUri = uri
+    }
     
     var showError by remember { mutableStateOf<String?>(null) }
     
@@ -206,6 +222,60 @@ fun AddEditTransactionScreen(
                     )
                 }
             }
+
+            // 图片上传
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("凭证/小票", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    if (selectedImageUri != null) {
+                        AsyncImage(
+                            model = selectedImageUri,
+                            contentDescription = "Selected Image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .padding(bottom = 8.dp)
+                        )
+                        Button(onClick = { selectedImageUri = null }) {
+                            Text("移除图片")
+                        }
+                    } else if (imagePath != null) {
+                        // Show existing image from server
+                        val baseUrl = "http://10.0.2.2:8000" 
+                        AsyncImage(
+                            model = "$baseUrl$imagePath",
+                            contentDescription = "Existing Image",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .padding(bottom = 8.dp)
+                        )
+                        Row {
+                            Button(onClick = { launcher.launch("image/*") }) {
+                                Text("更换图片")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(onClick = { imagePath = null }) {
+                                Text("移除图片")
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { launcher.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Image, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("上传图片")
+                        }
+                    }
+                }
+            }
             
             // 确认和取消按钮
             Row(
@@ -258,29 +328,56 @@ fun AddEditTransactionScreen(
                         
                         showError = null
                         
-                        val targetTransaction = loadedTransaction ?: transaction
-                        if (isEdit && (targetTransaction != null || transactionId != null)) {
-                            val id = targetTransaction?.id ?: transactionId!!
-                            viewModel.updateTransaction(
-                                id = id,
-                                amount = amount,
-                                type = selectedType,
-                                category = categoryText,
-                                description = descriptionText.ifBlank { null },
-                                date = dateTime,
-                                onSuccess = onBack,
-                                onError = { showError = it }
-                            )
+                        val saveAction = { uploadedImagePath: String? ->
+                            val finalImagePath = uploadedImagePath ?: imagePath
+                            
+                            val targetTransaction = loadedTransaction ?: transaction
+                            if (isEdit && (targetTransaction != null || transactionId != null)) {
+                                val id = targetTransaction?.id ?: transactionId!!
+                                viewModel.updateTransaction(
+                                    id = id,
+                                    amount = amount,
+                                    type = selectedType,
+                                    category = categoryText,
+                                    description = descriptionText.ifBlank { null },
+                                    imagePath = finalImagePath,
+                                    date = dateTime,
+                                    onSuccess = onBack,
+                                    onError = { showError = it }
+                                )
+                            } else {
+                                viewModel.createTransaction(
+                                    amount = amount,
+                                    type = selectedType,
+                                    category = categoryText,
+                                    description = descriptionText.ifBlank { null },
+                                    imagePath = finalImagePath,
+                                    date = dateTime,
+                                    onSuccess = onBack,
+                                    onError = { showError = it }
+                                )
+                            }
+                        }
+
+                        if (selectedImageUri != null) {
+                            try {
+                                val inputStream = context.contentResolver.openInputStream(selectedImageUri!!)
+                                val file = File(context.cacheDir, "temp_image_${System.currentTimeMillis()}.jpg")
+                                val outputStream = FileOutputStream(file)
+                                inputStream?.copyTo(outputStream)
+                                inputStream?.close()
+                                outputStream.close()
+                                
+                                viewModel.uploadImage(
+                                    file = file,
+                                    onSuccess = { url -> saveAction(url) },
+                                    onError = { showError = it }
+                                )
+                            } catch (e: Exception) {
+                                showError = "图片处理失败: ${e.message}"
+                            }
                         } else {
-                            viewModel.createTransaction(
-                                amount = amount,
-                                type = selectedType,
-                                category = categoryText,
-                                description = descriptionText.ifBlank { null },
-                                date = dateTime,
-                                onSuccess = onBack,
-                                onError = { showError = it }
-                            )
+                            saveAction(null)
                         }
                     },
                     modifier = Modifier

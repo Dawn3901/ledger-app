@@ -18,6 +18,7 @@ class TransactionService:
         amount: float,
         category: str,
         description: Optional[str] = None,
+        image_path: Optional[str] = None,
         date: Optional[datetime] = None
     ):
         if type not in ["income", "expense"]:
@@ -32,6 +33,7 @@ class TransactionService:
             amount=amount,
             category=category,
             description=description,
+            image_path=image_path,
             date=date
         )
         return self.repo.create_transaction(transaction)
