@@ -12,13 +12,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+data class CategoryStat(
+    val category: String,
+    val amount: Double,
+    val percentage: Float
+)
+
 data class TransactionUiState(
     val transactions: List<Transaction> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
     val totalIncome: Double = 0.0,
     val totalExpense: Double = 0.0,
-    val balance: Double = 0.0
+    val balance: Double = 0.0,
+    val expenseStats: List<CategoryStat> = emptyList()
 )
 
 class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel() {
@@ -59,12 +66,27 @@ class TransactionViewModel(private val tokenManager: TokenManager) : ViewModel()
                         .sumOf { it.amount }
                     val balance = totalIncome - totalExpense
                     
+                    // 计算分类统计
+                    val expenseStats = transactionList
+                        .filter { it.type == "expense" }
+                        .groupBy { it.category }
+                        .map { (category, transactions) ->
+                            val amount = transactions.sumOf { it.amount }
+                            CategoryStat(
+                                category = category,
+                                amount = amount,
+                                percentage = if (totalExpense > 0) (amount / totalExpense).toFloat() else 0f
+                            )
+                        }
+                        .sortedByDescending { it.amount }
+
                     _uiState.value = _uiState.value.copy(
                         transactions = transactionList,
                         isLoading = false,
                         totalIncome = totalIncome,
                         totalExpense = totalExpense,
-                        balance = balance
+                        balance = balance,
+                        expenseStats = expenseStats
                     )
                 } else {
                     // 如果是401错误，清除token

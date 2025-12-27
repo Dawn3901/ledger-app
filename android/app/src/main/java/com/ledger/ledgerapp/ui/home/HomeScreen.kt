@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -32,6 +33,7 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToTransactions: () -> Unit,
     onNavigateToAddTransaction: () -> Unit,
+    onNavigateToStatistics: () -> Unit,
     viewModel: TransactionViewModel = viewModel { TransactionViewModel(tokenManager) }
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -73,6 +75,9 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("记账本") },
                 actions = {
+                    IconButton(onClick = onNavigateToStatistics) {
+                        Icon(Icons.Default.PieChart, contentDescription = "统计")
+                    }
                     IconButton(onClick = onNavigateToProfile) {
                         Icon(Icons.Default.AccountCircle, contentDescription = "用户信息")
                     }
