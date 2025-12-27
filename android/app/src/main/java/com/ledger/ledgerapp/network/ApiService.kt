@@ -1,4 +1,6 @@
 package com.ledger.ledgerapp.network
+import com.ledger.ledgerapp.network.models.Budget
+import com.ledger.ledgerapp.network.models.BudgetRequest
 import com.ledger.ledgerapp.network.models.LoginRequest
 import com.ledger.ledgerapp.network.models.LoginResponse
 import com.ledger.ledgerapp.network.models.RegisterRequest
@@ -68,4 +70,15 @@ interface ApiService {
     suspend fun uploadImage(
         @Part image: MultipartBody.Part
     ): Response<Map<String, String>>
+
+    // 预算相关
+    @GET("api/budgets")
+    suspend fun getBudgets(
+        @Query("month") month: String
+    ): Response<List<Budget>>
+
+    @POST("api/budgets")
+    suspend fun setBudget(
+        @Body budget: BudgetRequest
+    ): Response<Budget>
 }

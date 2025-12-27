@@ -20,6 +20,7 @@ import com.ledger.ledgerapp.ui.login.LoginScreen
 import com.ledger.ledgerapp.ui.register.RegisterScreen
 import com.ledger.ledgerapp.ui.profile.ProfileScreen
 import com.ledger.ledgerapp.ui.statistics.StatisticsScreen
+import com.ledger.ledgerapp.ui.budget.BudgetScreen
 import com.ledger.ledgerapp.ui.transactions.AddEditTransactionScreen
 import com.ledger.ledgerapp.ui.transactions.TransactionListScreen
 
@@ -30,6 +31,7 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile")
     object Transactions : Screen("transactions")
     object Statistics : Screen("statistics")
+    object Budget : Screen("budget")
     object AddTransaction : Screen("add_transaction")
     object EditTransaction : Screen("edit_transaction/{transactionId}") {
         fun createRoute(transactionId: Int) = "edit_transaction/$transactionId"
@@ -156,6 +158,15 @@ fun AppNavigation(
             )
         }
 
+        composable(Screen.Budget.route) {
+            BudgetScreen(
+                tokenManager = tokenManager,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onLogout = {
@@ -167,6 +178,9 @@ fun AppNavigation(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
+                },
+                onNavigateToBudget = {
+                    navController.navigate(Screen.Budget.route)
                 }
             )
         }

@@ -18,6 +18,7 @@ import com.ledger.ledgerapp.viewmodel.ProfileViewModel
 fun ProfileScreen(
     onLogout: () -> Unit,
     onNavigateToHome: (() -> Unit)? = null,
+    onNavigateToBudget: (() -> Unit)? = null,
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -75,6 +76,17 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = { onNavigateToBudget?.invoke() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text("预算管理")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Button(
                 onClick = {
