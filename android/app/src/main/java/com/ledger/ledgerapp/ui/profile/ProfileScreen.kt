@@ -24,6 +24,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.ledger.ledgerapp.network.RetrofitClient
 import com.ledger.ledgerapp.viewmodel.ProfileViewModel
 import java.io.File
 import java.io.FileOutputStream
@@ -124,7 +125,8 @@ fun ProfileScreen(
                     val avatarUrl = if (uiState.avatarPath!!.startsWith("http")) {
                         uiState.avatarPath
                     } else {
-                        "http://10.0.2.2:8000${uiState.avatarPath}"
+                        val baseUrl = RetrofitClient.BASE_URL.removeSuffix("/")
+                        "$baseUrl${uiState.avatarPath}"
                     }
                     AsyncImage(
                         model = avatarUrl,

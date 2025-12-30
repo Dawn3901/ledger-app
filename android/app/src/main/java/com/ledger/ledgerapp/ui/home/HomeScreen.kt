@@ -27,6 +27,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.ledger.ledgerapp.data.TokenManager
+import com.ledger.ledgerapp.network.RetrofitClient
 import com.ledger.ledgerapp.viewmodel.ProfileViewModel
 import com.ledger.ledgerapp.viewmodel.TransactionViewModel
 import kotlinx.coroutines.delay
@@ -112,7 +113,8 @@ fun HomeScreen(
                             val avatarUrl = if (profileUiState.avatarPath!!.startsWith("http")) {
                                 profileUiState.avatarPath
                             } else {
-                                "http://10.0.2.2:8000${profileUiState.avatarPath}"
+                                val baseUrl = RetrofitClient.BASE_URL.removeSuffix("/")
+                                "$baseUrl${profileUiState.avatarPath}"
                             }
                             AsyncImage(
                                 model = avatarUrl,
