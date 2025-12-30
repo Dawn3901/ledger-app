@@ -22,6 +22,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import coil.compose.AsyncImage
 import com.ledger.ledgerapp.data.TokenManager
 import com.ledger.ledgerapp.viewmodel.ProfileViewModel
@@ -75,6 +78,24 @@ fun HomeScreen(
             delay(300)
             viewModel.loadTransactions()
             profileViewModel.loadUserInfo()
+        }
+    }
+
+    // 监听生命周期事件，在应用回到前台时刷新数据
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val currentToken = tokenState
+                if (currentToken != null && currentToken.isNotBlank()) {
+                    profileViewModel.loadUserInfo()
+                    viewModel.loadTransactions()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
     

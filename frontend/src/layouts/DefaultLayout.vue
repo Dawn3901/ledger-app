@@ -173,13 +173,25 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import api from '@/api'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+onMounted(async () => {
+  if (authStore.token) {
+    try {
+      const res = await api.get('/me')
+      authStore.setUser(res.data)
+    } catch (err) {
+      console.error('Failed to refresh user info:', err)
+      // Optional: if 401, logout? The interceptor handles 401, so we might not need to do it here.
+    }
+  }
+})
 
 const userInitial = computed(() => {
   return authStore.user?.username?.charAt(0).toUpperCase() || 'U'
@@ -217,6 +229,10 @@ const onAvatarSelected = async (e: Event) => {
   try {
     const res = await api.post('/upload/image', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
     const url = res.data.url
+    
+    // Update user profile on backend
+    await api.put('/me', { avatar_path: url })
+    
     authStore.setAvatarUrl(url)
   } catch (err) {
     console.error(err)
