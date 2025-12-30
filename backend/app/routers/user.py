@@ -20,12 +20,6 @@ def register_user(payload: RegisterRequest, service: UserService = Depends(get_u
 @router.post("/login")
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), service: UserService = Depends(get_user_service)):
     user = service.repo.find_user_by_username(form_data.username)
-    print(f"Login attempt for: {form_data.username}, password: {form_data.password}")
-    if user:
-        print(f"User found. Stored hash: {user.password}")
-        print(f"Computed hash: {hash_text(form_data.password)}")
-        print(f"Match: {verify_password(form_data.password, user.password)}")
-    
     if user is None or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     access_token = create_access_token(data={"sub": user.username})
@@ -75,3 +69,30 @@ def delete_account(
     service: UserService = Depends(get_user_service)
 ):
     return service.delete_account(current_username, payload.password, payload.avatar_url)
+
+
+@router.get("/me", response_model=UserResponse)
+def read_users_me(
+    current_username: str = Depends(get_current_user),
+    service: UserService = Depends(get_user_service)
+):
+    user = service.repo.find_user_by_username(current_username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.put("/me", response_model=UserResponse)
+def update_user_me(
+    user_update: UserUpdate,
+    current_username: str = Depends(get_current_user),
+    service: UserService = Depends(get_user_service)
+):
+    if user_update.avatar_path is not None:
+        updated_user = service.update_user_avatar(current_username, user_update.avatar_path)
+        return updated_user
+    
+    user = service.repo.find_user_by_username(current_username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user

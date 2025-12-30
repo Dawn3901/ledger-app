@@ -14,6 +14,9 @@ import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.*
 
+import com.ledger.ledgerapp.network.models.User
+import com.ledger.ledgerapp.network.models.UserUpdate
+
 interface ApiService {
     // 认证相关
     @FormUrlEncoded
@@ -81,4 +84,13 @@ interface ApiService {
     suspend fun setBudget(
         @Body budget: BudgetRequest
     ): Response<Budget>
+
+    // 用户相关
+    @GET("api/me")
+    suspend fun getCurrentUser(): Response<User>
+
+    @PUT("api/me")
+    suspend fun updateCurrentUser(
+        @Body userUpdate: UserUpdate
+    ): Response<User>
 }

@@ -13,7 +13,7 @@ class UserService:
         self.repo = repo
 
     def register_user(self, username: str, password: str):
-        
+
         print(f"Registering user: {username}, password: {password}")
         hashed = hash_text(password)
         print(f"Hashed password: {hashed}")
@@ -31,6 +31,14 @@ class UserService:
         hashed = hash_text(password)
         self.repo.update_password(user, hashed)
         return {"detail": "Password updated successfully"}
+
+    def update_user_avatar(self, username: str, avatar_path: str):
+        user = self.repo.find_user_by_username(username)
+        if user is None:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=404, detail="User not found")
+        self.repo.update_avatar(user, avatar_path)
+        return user
 
     def delete_account(self, username: str, password: str, avatar_url: str | None = None):
         from fastapi import HTTPException
