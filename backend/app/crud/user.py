@@ -27,6 +27,13 @@ class UserRepo:
         self.session.refresh(user)
         return user
 
+    def update_avatar(self, user: Users, avatar_path: str):
+        user.avatar_path = avatar_path
+        self.session.add(user)
+        self.session.commit()
+        self.session.refresh(user)
+        return user
+
     def delete_user(self, user: Users):
         self.session.delete(user)
         self.session.commit()

@@ -1,17 +1,29 @@
 package com.ledger.ledgerapp.ui.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.ledger.ledgerapp.viewmodel.ProfileViewModel
+import java.io.File
+import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,8 +34,37 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    LaunchedEffect(uiState.uploadSuccess) {
+        if (uiState.uploadSuccess) {
+            snackbarHostState.showSnackbar("头像上传成功")
+            viewModel.resetUploadSuccess()
+        }
+    }
+    
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { selectedUri ->
+            try {
+                val inputStream = context.contentResolver.openInputStream(selectedUri)
+                val file = File(context.cacheDir, "avatar_${System.currentTimeMillis()}.jpg")
+                val outputStream = FileOutputStream(file)
+                inputStream?.copyTo(outputStream)
+                inputStream?.close()
+                outputStream.close()
+                
+                viewModel.updateAvatar(file)
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("用户信息") },
@@ -52,6 +93,56 @@ fun ProfileScreen(
                 text = "用户信息",
                 style = MaterialTheme.typography.headlineMedium
             )
+
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Avatar Section
+            Box(
+                contentAlignment = Alignment.BottomEnd,
+                modifier = Modifier
+                    .size(120.dp)
+                    .clickable { launcher.launch("image/*") }
+            ) {
+                if (uiState.avatarPath != null) {
+                    val avatarUrl = if (uiState.avatarPath!!.startsWith("http")) {
+                        uiState.avatarPath
+                    } else {
+                        "http://10.0.2.2:8000${uiState.avatarPath}"
+                    }
+                    AsyncImage(
+                        model = avatarUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Default Avatar",
+                        modifier = Modifier.fillMaxSize(),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                // Edit Icon Badge
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Avatar",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 

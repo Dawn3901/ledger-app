@@ -1,6 +1,7 @@
 package com.ledger.ledgerapp.ui.home
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -14,12 +15,16 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.ledger.ledgerapp.data.TokenManager
+import com.ledger.ledgerapp.viewmodel.ProfileViewModel
 import com.ledger.ledgerapp.viewmodel.TransactionViewModel
 import kotlinx.coroutines.delay
 
@@ -34,9 +39,11 @@ fun HomeScreen(
     onNavigateToTransactions: () -> Unit,
     onNavigateToAddTransaction: () -> Unit,
     onNavigateToStatistics: () -> Unit,
-    viewModel: TransactionViewModel = viewModel { TransactionViewModel(tokenManager) }
+    viewModel: TransactionViewModel = viewModel { TransactionViewModel(tokenManager) },
+    profileViewModel: ProfileViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val profileUiState by profileViewModel.uiState.collectAsState()
     
     // 检查token，如果没有token则不加载数据
     // 使用状态变量避免在初始渲染时收集Flow
@@ -67,6 +74,7 @@ fun HomeScreen(
             // 延迟加载数据，确保UI先渲染
             delay(300)
             viewModel.loadTransactions()
+            profileViewModel.loadUserInfo()
         }
     }
     
@@ -79,7 +87,23 @@ fun HomeScreen(
                         Icon(Icons.Default.PieChart, contentDescription = "统计")
                     }
                     IconButton(onClick = onNavigateToProfile) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = "用户信息")
+                        if (profileUiState.avatarPath != null) {
+                            val avatarUrl = if (profileUiState.avatarPath!!.startsWith("http")) {
+                                profileUiState.avatarPath
+                            } else {
+                                "http://10.0.2.2:8000${profileUiState.avatarPath}"
+                            }
+                            AsyncImage(
+                                model = avatarUrl,
+                                contentDescription = "用户信息",
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Icon(Icons.Default.AccountCircle, contentDescription = "用户信息")
+                        }
                     }
                 }
             )
